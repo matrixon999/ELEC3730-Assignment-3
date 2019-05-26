@@ -20,16 +20,68 @@
 #define YSIZE 150
 #define XPOS 5
 
-uint16_t ADC_Value[1000];
+static uint16_t xpos=0;
+static uint16_t ypos=0;
+static uint16_t last_xpos=0;
+static uint16_t last_ypos=0;
+
+void draw_loaded() {
+	safe_printf("Drawing loaded data\n");
+	xpos=0;
+	ypos=0;
+	last_xpos=0;
+	last_ypos=0;
+
+	osMutexWait(myMutex01Handle, osWaitForever);
+
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	BSP_LCD_FillRect(XOFF,YOFF,XSIZE-1,YSIZE-1);
+	BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+
+	/*
+	 * for 25 pixels
+	 * x = xoff + i * 25
+	 */
+
+	for(int i = 0; i < 10; i++) {
+	  set_ADC_Pos(i);
+	  xpos = i * 25;
+
+	  //for(int j=0;j<1000;j += 1000/40)
+	  for(int j = 0; j < 25; j++)
+	  {
+		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+		  BSP_LCD_DrawVLine(XOFF+xpos,YOFF,YSIZE);
+		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+		  //ypos=(uint16_t)((uint32_t)(get_ADC_Value(j*40))*YSIZE/4096);
+
+		  // scale to 0 - 135
+		  uint16_t val = get_ADC_Value(j*40);
+		  ypos = ((val)*(150))/(4096);
+		  //safe_printf("val: %d - ypos: %d\n", val, ypos);
+		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
+		  last_xpos=xpos;
+		  last_ypos=ypos;
+
+		  xpos++;
+	  }
+	}
+	osMutexRelease(myMutex01Handle);
+}
 
 void Ass_03_Task_04(void const * argument)
 {
   uint16_t i;
   HAL_StatusTypeDef status;
-  uint16_t xpos=0;
-  uint16_t ypos=0;
-  uint16_t last_xpos=0;
-  uint16_t last_ypos=0;
+
+	xpos=0;
+	ypos=0;
+	last_xpos=0;
+	last_ypos=0;
+  //uint16_t xpos=0;
+  //uint16_t ypos=0;
+  //uint16_t last_xpos=0;
+  //uint16_t last_ypos=0;
 
   osSignalWait(1,osWaitForever);
   safe_printf("Hello from Task 4 - Analog Input (turn ADC knob or use pulse sensor)\n");
@@ -40,15 +92,43 @@ void Ass_03_Task_04(void const * argument)
   osMutexRelease(myMutex01Handle);
 
   // Start the conversion process
-  status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&ADC_Value, 1000);
+  //status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&ADC_Value, 1000);
+  status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)get_ADC_Value_p(), 1000);
   if (status != HAL_OK)
   {
 	  safe_printf("ERROR: Task 4 HAL_ADC_Start_DMA() %d\n", status);
   }
 
+  bool reset_after_snake = false;
+
   // Start main loop
   while (1)
   {
+	  if(get_loaded() == true) {
+		  draw_loaded();
+		  xpos=0;
+			ypos=0;
+			last_xpos=0;
+			last_ypos=0;
+			set_ADC_Pos(0);
+		  set_loaded(false);
+		  continue;
+	  }
+
+	  if(!get_start()) {
+		  osDelay(100);
+		  continue;
+	  }
+	  if(get_snake_time()) {
+		  reset_after_snake = true;
+	  } else if(reset_after_snake) {
+		  set_ADC_Pos(0);
+		  last_xpos=0;
+		  last_ypos=0;
+	  }
+
+
+
 	  // Wait for first half of buffer
 	  osSemaphoreWait(myBinarySem05Handle, osWaitForever);
 	  osMutexWait(myMutex01Handle, osWaitForever);
@@ -57,7 +137,7 @@ void Ass_03_Task_04(void const * argument)
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 		  BSP_LCD_DrawVLine(XOFF+xpos,YOFF,YSIZE);
 		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-		  ypos=(uint16_t)((uint32_t)(ADC_Value[i])*YSIZE/4096);
+		  ypos=(uint16_t)((uint32_t)(get_ADC_Value(i))*YSIZE/4096);
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
 		  // BSP_LCD_FillRect(xpos,ypos,1,1);
 		  last_xpos=xpos;
@@ -80,7 +160,7 @@ void Ass_03_Task_04(void const * argument)
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 		  BSP_LCD_DrawVLine(XOFF+xpos,YOFF,YSIZE);
 		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-		  ypos=(uint16_t)((uint32_t)(ADC_Value[i+500])*YSIZE/4096);
+		  ypos=(uint16_t)((uint32_t)(get_ADC_Value(i+500))*YSIZE/4096);
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
 		  // BSP_LCD_FillCircle(xpos,ypos,2);
 		  last_xpos=xpos;
@@ -88,6 +168,26 @@ void Ass_03_Task_04(void const * argument)
 		  xpos++;
 	  }
 	  osMutexRelease(myMutex01Handle);
+
+	  // inc adc pos
+	  /*ADC_Pos++;
+	  if(ADC_Pos > get_analog_value()-1) ADC_Pos = 0;*/
+
+	  int old_pos = get_ADC_Pos();
+	  int new_pos = old_pos + 1;
+	  if(new_pos > get_analog_value()-1) {
+		  new_pos = 0;
+	  }
+	  set_ADC_Pos(new_pos);
+
+
+	  HAL_ADC_Stop_DMA(&hadc1);
+	  status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)get_ADC_Value_p(), 1000);
+		if (status != HAL_OK)
+		{
+			safe_printf("ERROR: Task 4 HAL_ADC_Start_DMA() %d\n", status);
+		}
+
 	  if (last_xpos>=XSIZE-1)
 	  {
 		  xpos=0;

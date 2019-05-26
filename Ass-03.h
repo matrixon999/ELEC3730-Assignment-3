@@ -52,6 +52,8 @@ extern osMessageQId myQueue01Handle;
 extern osMutexId myMutex01Handle; // Protect LCD
 extern osMutexId myMutex02Handle; // Protect console output
 
+extern osMutexId globalVariableHandle; // Protect global variables
+
 // Assignment tasks
 extern void Ass_03_Task_01(void const *argument);
 extern void Ass_03_Task_02(void const *argument);
@@ -79,15 +81,97 @@ extern uint8_t getfp(Coordinate *display);
 
 // global variables
 
+static bool just_loaded = false;
+extern bool get_loaded();
+extern void set_loaded(bool);
+
+static volatile int ADC_Pos = 0;
+extern int get_ADC_Pos();
+extern void set_ADC_Pos(int val);
+
+static uint16_t ADC_Value[10][1000];
+extern uint16_t get_ADC_Value(int i);
+extern void set_ADC_Value(int i, uint16_t val);
+extern uint16_t *get_ADC_Value_p();
+extern uint16_t **get_ADC_Total_p();
+
+extern uint16_t *get_Copy_ADC_Array(int i);
+
+extern uint16_t get_ADC_Single_Value(int pos, int i);
+extern uint16_t *get_ADC_Array(int i);
+
 static bool debug_mode_enabled = false;
+extern bool get_debug_mode_status();
+extern void set_debug_mode_status(bool);
+
 static int analog_value = 10;
+extern int get_analog_value();
+extern void set_analog_value(int);
+
+static int memory_location = 1;
+extern int get_memory_location();
+extern void set_memory_location(int);
+
 static FIL MyFile;
+extern FIL get_File_Handle();
+extern void set_File_Handle(FIL);
+
+static bool start = true;
+extern bool get_start();
+extern void set_start(bool);
+
+// function declarations
 
 extern int string_parser(char *inp, char **array_of_words_p[]);
 extern FRESULT scan_files(char *path);
 extern bool is_char_numeric(char c);
 extern int to_int(char *str);
 extern bool is_numeric(char *str);
+
+// functions for commad array
+extern void debug_func(uint8_t num_args, char **args);
+extern void analog_func(uint8_t num_args, char **args);
+extern void ls_func(uint8_t num_args, char **args);
+extern void cd_func(uint8_t num_args, char **args);
+extern void mkdir_func(uint8_t num_args, char **args);
+extern void cp_func(uint8_t num_args, char **args);
+extern void rm_func(uint8_t num_args, char **args);
+extern void cwd_func(uint8_t num_args, char **args);
+extern void help_func(uint8_t num_args, char **args);
+extern void mv_func(uint8_t num_args, char **args);
+extern void ren_func(uint8_t num_args, char **args);
+extern void tree_func(uint8_t num_args, char **args);
+extern void cat_func(uint8_t num_args, char **args);
+extern void head_func(uint8_t num_args, char **args);
+extern void tail_func(uint8_t num_args, char **args);
+extern void clear_func(uint8_t num_args, char **args);
+
+typedef struct {
+	char *function_name;
+	char *friendly_name;
+	void (*function_pointer)(uint8_t num_args, char **args);
+	char *help_string;
+} command;
+
+static const command Commands[] = {
+	{"debug", "Debug", &debug_func, "debug {on/off}"},
+	{"analog", "Analog", &analog_func, "analog {num}"},
+	{"ls", "List Files", &ls_func, "ls"},
+	{"cd", "Change Directory", &cd_func, "cd {name}"},
+	{"mkdir", "Make Directory", &mkdir_func, "mkdir {name}"},
+	{"cp", "Copy File/Directory", &cp_func, "cp {src} {dst}"},
+	{"rm", "Remove File/Directory", &rm_func, "rm {file}"},
+	{"cwd", "Current Working Directory", &cwd_func, "cwd"},
+
+	{"help", "Help", &help_func, "help {command}"},
+	{"mv", "Move File", &mv_func, "mv {src} {dst}"}, // TODO make sure handles files and directories
+	{"ren", "Rename File", &ren_func, "ren {old} {new}"},
+	{"tree", "Print File Tree", &tree_func, "tree"}, // TODO maybe specify dir
+	{"cat", "Print File", &cat_func, "cat {file}"},
+	{"head", "Print First 10 lines of file", &head_func, "head {file}"},
+	{"tail", "Print Last 10 lines of file", &tail_func, "tail {file}"},
+	{"clear", "Clears the screen", &clear_func, "clear"},
+};
 
 #define XOFF 55
 #define YOFF 15
@@ -106,7 +190,6 @@ typedef enum {
 	Mode
 } ButtonPress;
 
-
 typedef struct {
 	int x, y, width, height;
 	char *text;
@@ -122,12 +205,38 @@ static Rectangle rectangles[] = {
 
  {XPOS+(50), YOFF+(50*3)+25, 45, 45, "Store", Store}, //store
  {XPOS+(50*2), YOFF+(50*3)+25, 45, 45, "-", Minus}, // -
- {XPOS+(50*3), YOFF+(50*3)+25, 45, 45, "1", 0}, // num
+ {XPOS+(50*3), YOFF+(50*3)+25, 45, 45, "1", 0}, // num // pos 7
  {XPOS+(50*4), YOFF+(50*3)+25, 45, 45, "+", Plus}, // +
  {XPOS+(50*5), YOFF+(50*3)+25, 45, 45, "Mode", Mode}, //switch mode
 
  {XPOS+(50), YOFF+(150), 20, 20, "0s"}, // time stamp left
  {XPOS+(50*6)-20, YOFF+(150), 20, 20, "10s"}, // time stamp right
 };
+extern Rectangle* get_rectangles();
+
+static int rectangles_length = sizeof(rectangles) / sizeof(Rectangle);
+extern int get_rectangles_length();
+
+// SNAKE STUFF
+
+typedef enum {
+  Left = 'L',
+  Right = 'R',
+  Up = 'U',
+  Down = 'D',
+} JoystickButton;
+
+typedef struct {
+	int x;
+	int y;
+} vector;
+
+static bool snake_time = false;
+extern bool get_snake_time();
+extern void set_snake_time(bool);
+
+extern void run_snake_time();
+extern uint8_t GetJoystick();
+extern uint8_t ReadJoystick();
 
 #endif /* ASS_03_H_ */
