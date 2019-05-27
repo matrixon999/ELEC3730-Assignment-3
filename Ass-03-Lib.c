@@ -114,6 +114,24 @@ int string_parser(char *inp, char **array_of_words_p[])
  return 0;
 }
 
+uint16_t get_DMA_Value(int i)
+{
+	osMutexWait(globalVariableHandle, osWaitForever);
+	uint16_t result = DMA_Buffer[i];
+	osMutexRelease(globalVariableHandle);
+
+	return result;
+}
+
+uint16_t **get_DMA_Value_p()
+{
+	osMutexWait(globalVariableHandle, osWaitForever);
+	uint16_t **result = &DMA_Buffer;
+	osMutexRelease(globalVariableHandle);
+
+	return result;
+}
+
 bool get_loaded()
 {
 	osMutexWait(globalVariableHandle, osWaitForever);

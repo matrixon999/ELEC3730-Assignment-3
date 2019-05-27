@@ -42,6 +42,8 @@ extern osThreadId myTask03Handle;
 extern osThreadId myTask04Handle;
 extern osTimerId myTimer01Handle;
 
+extern osThreadId dataGrabberHandle;
+
 extern osSemaphoreId myBinarySem01Handle;
 extern osSemaphoreId myBinarySem02Handle;
 extern osSemaphoreId myBinarySem03Handle;
@@ -53,12 +55,15 @@ extern osMutexId myMutex01Handle; // Protect LCD
 extern osMutexId myMutex02Handle; // Protect console output
 
 extern osMutexId globalVariableHandle; // Protect global variables
+extern osMutexId SDCardMutexHandle; // TODO this
 
 // Assignment tasks
 extern void Ass_03_Task_01(void const *argument);
 extern void Ass_03_Task_02(void const *argument);
 extern void Ass_03_Task_03(void const *argument);
 extern void Ass_03_Task_04(void const *argument);
+
+extern void Data_Grabber_Task(void const *argument);
 
 // Library functions
 extern uint8_t BSP_TP_Init(void);
@@ -88,6 +93,11 @@ extern void set_loaded(bool);
 static volatile int ADC_Pos = 0;
 extern int get_ADC_Pos();
 extern void set_ADC_Pos(int val);
+
+static uint16_t DMA_Buffer[1000];
+extern uint16_t get_DMA_Value(int i);
+extern uint16_t **get_DMA_Value_p();
+
 
 static uint16_t ADC_Value[10][1000];
 extern uint16_t get_ADC_Value(int i);

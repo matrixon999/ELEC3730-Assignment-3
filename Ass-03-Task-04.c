@@ -92,8 +92,9 @@ void Ass_03_Task_04(void const * argument)
   osMutexRelease(myMutex01Handle);
 
   // Start the conversion process
-  //status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&ADC_Value, 1000);
-  status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)get_ADC_Value_p(), 1000);
+
+  // fix
+  status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)get_DMA_Value_p(), 1000);
   if (status != HAL_OK)
   {
 	  safe_printf("ERROR: Task 4 HAL_ADC_Start_DMA() %d\n", status);
@@ -101,16 +102,20 @@ void Ass_03_Task_04(void const * argument)
 
   bool reset_after_snake = false;
 
+
+  int x = 500;
+
   // Start main loop
   while (1)
   {
+	  x = get_analog_value() * 50 - 1;
+
 	  if(get_loaded() == true) {
 		  draw_loaded();
 		  xpos=0;
 			ypos=0;
 			last_xpos=0;
 			last_ypos=0;
-			set_ADC_Pos(0);
 		  set_loaded(false);
 		  continue;
 	  }
@@ -122,27 +127,26 @@ void Ass_03_Task_04(void const * argument)
 	  if(get_snake_time()) {
 		  reset_after_snake = true;
 	  } else if(reset_after_snake) {
-		  set_ADC_Pos(0);
 		  last_xpos=0;
 		  last_ypos=0;
 	  }
 
-
-
 	  // Wait for first half of buffer
 	  osSemaphoreWait(myBinarySem05Handle, osWaitForever);
 	  osMutexWait(myMutex01Handle, osWaitForever);
-	  for(i=0;i<500;i=i+500)
+	  for(i=0;i<500;i=i+x)
 	  {
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 		  BSP_LCD_DrawVLine(XOFF+xpos,YOFF,YSIZE);
 		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-		  ypos=(uint16_t)((uint32_t)(get_ADC_Value(i))*YSIZE/4096);
+
+		  ypos=(uint16_t)((uint32_t)(get_DMA_Value(i))*YSIZE/4096);
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
 		  // BSP_LCD_FillRect(xpos,ypos,1,1);
 		  last_xpos=xpos;
 		  last_ypos=ypos;
 		  xpos++;
+		  if (last_xpos>=XSIZE-1) break;
 	  }
 	  osMutexRelease(myMutex01Handle);
 	  if (last_xpos>=XSIZE-1)
@@ -155,39 +159,21 @@ void Ass_03_Task_04(void const * argument)
 	  osSemaphoreWait(myBinarySem06Handle, osWaitForever);
 	  HAL_GPIO_WritePin(GPIOD, LD4_Pin, GPIO_PIN_SET);
 	  osMutexWait(myMutex01Handle, osWaitForever);
-	  for(i=0;i<500;i=i+500)
+	  for(i=0;i<500;i=i+x)
 	  {
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 		  BSP_LCD_DrawVLine(XOFF+xpos,YOFF,YSIZE);
 		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-		  ypos=(uint16_t)((uint32_t)(get_ADC_Value(i+500))*YSIZE/4096);
+
+		  ypos=(uint16_t)((uint32_t)(get_DMA_Value(i+500))*YSIZE/4096);
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
 		  // BSP_LCD_FillCircle(xpos,ypos,2);
 		  last_xpos=xpos;
 		  last_ypos=ypos;
 		  xpos++;
+		  if (last_xpos>=XSIZE-1) break;
 	  }
 	  osMutexRelease(myMutex01Handle);
-
-	  // inc adc pos
-	  /*ADC_Pos++;
-	  if(ADC_Pos > get_analog_value()-1) ADC_Pos = 0;*/
-
-	  int old_pos = get_ADC_Pos();
-	  int new_pos = old_pos + 1;
-	  if(new_pos > get_analog_value()-1) {
-		  new_pos = 0;
-	  }
-	  set_ADC_Pos(new_pos);
-
-
-	  HAL_ADC_Stop_DMA(&hadc1);
-	  status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)get_ADC_Value_p(), 1000);
-		if (status != HAL_OK)
-		{
-			safe_printf("ERROR: Task 4 HAL_ADC_Start_DMA() %d\n", status);
-		}
-
 	  if (last_xpos>=XSIZE-1)
 	  {
 		  xpos=0;

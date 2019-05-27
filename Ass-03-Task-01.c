@@ -51,7 +51,19 @@ void analog_func(uint8_t num_args, char **args)
 			int val = to_int(args[0]);
 			set_analog_value(val);
 
-			set_ADC_Pos(0);
+			char* new_string = malloc(4);
+			sprintf(new_string, "%ds", val);
+
+			osMutexWait(myMutex01Handle, osWaitForever);
+			BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
+			BSP_LCD_SetFont(&Font8);
+			BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, "   ", CENTER_MODE);
+			BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, new_string, CENTER_MODE);
+			BSP_LCD_SetFont(&Font12);
+			BSP_LCD_DrawRect(55-1,15-1,250+1,150+1);
+			osMutexRelease(myMutex01Handle);
+
+			free(new_string);
 		}
 		else {
 			safe_printf(CONSOLE_RED("Non numeric argument given.\n"));
@@ -363,6 +375,7 @@ void Ass_03_Task_01(void const * argument)
   osSignalSet(myTask02Handle, 1);
   osSignalSet(myTask03Handle, 1);
   osSignalSet(myTask04Handle, 1);
+  osSignalSet(dataGrabberHandle, 1);
 
   // Display welcome message
   osMutexWait(myMutex01Handle, osWaitForever);
