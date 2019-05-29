@@ -40,6 +40,10 @@ int string_parser(char *inp, char **array_of_words_p[])
    }
 
    char *wordArray = (char*)malloc(sizeof(char) * string_length);
+   if(wordArray == NULL) {
+	   safe_printf("Failed to allocate memory\n");
+	   return NULL;
+   }
    int elements = 0;
    for (int i = 0; inp[i] != '\0'; i++){
      if (inp[i] != 8){
@@ -187,7 +191,6 @@ uint16_t *get_ADC_Value_p()
 uint16_t **get_ADC_Total_p()
 {
 	osMutexWait(globalVariableHandle, osWaitForever);
-	safe_printf("Known ADC_Value: 0x%X\n", ADC_Value);
 	uint16_t **result = ADC_Value;
 	osMutexRelease(globalVariableHandle);
 
@@ -233,19 +236,19 @@ uint16_t *get_Copy_ADC_Array(int i)
 	return data;
 }
 
-bool get_debug_mode_status()
+bool get_debug_mode()
 {
 	osMutexWait(globalVariableHandle, osWaitForever);
-	bool result = debug_mode_enabled;
+	bool result = debug_mode;
 	osMutexRelease(globalVariableHandle);
 
 	return result;
 }
 
-void set_debug_mode_status(bool val)
+void set_debug_mode(bool val)
 {
 	osMutexWait(globalVariableHandle, osWaitForever);
-	debug_mode_enabled = val;
+	debug_mode = val;
 	osMutexRelease(globalVariableHandle);
 }
 
@@ -391,6 +394,7 @@ bool SD_Change_Directory(char *str)
 		return false;
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
@@ -450,8 +454,8 @@ bool SD_Copy(char *src, char *dst)
 	if(res != FR_OK) {
 		safe_printf(CONSOLE_RED("Failed to open file %s\n"), src);
 		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
-		osMutexRelease(myMutex01Handle);
 		free(data);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
@@ -554,9 +558,13 @@ bool SD_Write_File(char *file_path, uint8_t* data, int length)
 		return false;
 	}
 
-	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Wrote %d bytes\n"), bytes_written);
+	if(get_debug_mode()) {
+		safe_printf(CONSOLE_BLUE("Wrote %d bytes\n"), bytes_written);
+	}
 
-	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Write to file successful\n"));
+	if(get_debug_mode()) {
+		safe_printf(CONSOLE_BLUE("Write to file successful\n"));
+	}
 
 	f_close(&MyFile);
 
@@ -566,10 +574,6 @@ bool SD_Write_File(char *file_path, uint8_t* data, int length)
 
 bool SD_Write_File_Offset(char *file_path, uint16_t** data, int offset)
 {
-	safe_printf("file_path: %s\n", file_path);
-	safe_printf("data address: 0x%X\n", data);
-	safe_printf("offset: %d\n", offset);
-
 	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_open(&MyFile, file_path, FA_WRITE | FA_CREATE_ALWAYS);
 	if(res != FR_OK) {
@@ -584,9 +588,7 @@ bool SD_Write_File_Offset(char *file_path, uint16_t** data, int offset)
 		uint16_t *data_b = get_Copy_ADC_Array(pos);
 
 		UINT bytes_written;
-		safe_printf("Before\n");
 		res = f_write(&MyFile, data_b, 2000, &bytes_written);
-		safe_printf("After\n");
 		if(res != FR_OK) {
 			safe_printf(CONSOLE_RED("Failed to write to file %s.\n"), file_path);
 			safe_printf(CONSOLE_RED("Error code: %d\n"), res);
@@ -603,7 +605,9 @@ bool SD_Write_File_Offset(char *file_path, uint16_t** data, int offset)
 		if(pos == offset) break;
 	}
 
-	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Write to file successful\n"));
+	if(get_debug_mode()) {
+		safe_printf(CONSOLE_BLUE("Write to file successful\n"));
+	}
 
 	f_close(&MyFile);
 
@@ -643,7 +647,9 @@ bool SD_Read_File(char *file_path, uint8_t **data, int* length)
 		return false;
 	}
 
-	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Bytes read: %d\n"), bytes_read);
+	if(get_debug_mode()) {
+		safe_printf(CONSOLE_BLUE("Bytes read: %d\n"), bytes_read);
+	}
 
 	*data = data_read;
 	*length = bytes_read;
@@ -709,7 +715,9 @@ bool SD_Tree(char *path)
 			if (fno.fattrib & AM_DIR) {
 				i = strlen(path);
 				sprintf(&path[i], "/%s", fno.fname);
+				osMutexRelease(myMutex01Handle);
 				res = SD_Tree(path);
+				osMutexWait(myMutex01Handle, osWaitForever);
 				if (res != FR_OK) break;
 				path[i] = 0;
 			} else {

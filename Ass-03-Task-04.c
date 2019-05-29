@@ -26,7 +26,9 @@ static uint16_t last_xpos=0;
 static uint16_t last_ypos=0;
 
 void draw_loaded() {
-	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Drawing loaded data\n"));
+	if(get_debug_mode()) {
+		safe_printf(CONSOLE_BLUE("Drawing loaded data\n"));
+	}
 	// reset position values
 	xpos=0;
 	ypos=0;
@@ -123,11 +125,9 @@ void Ass_03_Task_04(void const * argument)
 			last_xpos=0;
 			last_ypos=0;
 		  // reset flags
-		  set_loaded(false);
 
 		  // reset adc array
 		  osMutexWait(globalVariableHandle, osWaitForever);
-
 		  for(int i = 0; i < 10; i++)
 		  {
 			  for(int j = 0; j < 1000; j++)
@@ -138,8 +138,7 @@ void Ass_03_Task_04(void const * argument)
 		  osMutexRelease(globalVariableHandle);
 		  set_ADC_Pos(0);
 
-		  	// reset analog value
-		  set_analog_value(10); // to fix weird graph glitches
+		  set_loaded(false);
 		  continue;
 	  }
 

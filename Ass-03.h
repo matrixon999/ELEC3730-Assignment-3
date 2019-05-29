@@ -86,7 +86,8 @@ extern uint8_t getfp(Coordinate *display);
 
 // global variables
 
-static uint16_t beat_values[100];
+#define NUM_SECONDS 10
+static uint16_t beat_values[NUM_SECONDS * 100] = {0};
 
 static bool just_loaded = false;
 extern bool get_loaded();
@@ -111,9 +112,9 @@ extern uint16_t *get_Copy_ADC_Array(int i);
 extern uint16_t get_ADC_Single_Value(int pos, int i);
 extern uint16_t *get_ADC_Array(int i);
 
-static bool debug_mode_enabled = false;
-extern bool get_debug_mode_status();
-extern void set_debug_mode_status(bool);
+static bool debug_mode = false;
+extern bool get_debug_mode();
+extern void set_debug_mode(bool);
 
 static int analog_value = 10;
 extern int get_analog_value();

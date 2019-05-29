@@ -25,16 +25,16 @@ void debug_func(uint8_t num_args, char **args)
 {
 	// if no arguments, print status
 	if(num_args == 0) {
-		safe_printf("Debug mode: %s\n", get_debug_mode_status() ? "Enabled" : "Disabled");
+		safe_printf("Debug mode: %s\n", get_debug_mode() ? "Enabled" : "Disabled");
 	}
 	// else, check second argument
 	else {
 		if(strcmp(args[0], "on") == 0) {
-			set_debug_mode_status(true);
+			set_debug_mode(true);
 			safe_printf("Debug mode is on\n");
 		}
 		else if(strcmp(args[0], "off") == 0) {
-			set_debug_mode_status(false);
+			set_debug_mode(false);
 			safe_printf("Debug mode is off\n");
 		}
 		else {
@@ -55,8 +55,15 @@ void analog_func(uint8_t num_args, char **args)
 		if(is_numeric(args[0])) {
 			// convert given argument to int
 			int val = to_int(args[0]);
+
+			if(val < 1 || val > 10) {
+				safe_printf("Only values 1 to 10 can be chosen\n");
+				return;
+			}
+
 			// set the analog value
 			set_analog_value(val);
+
 
 			// create string for updating screen
 			char* new_string = malloc(4);
@@ -69,13 +76,12 @@ void analog_func(uint8_t num_args, char **args)
 			BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, "   ", CENTER_MODE);
 			BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, new_string, CENTER_MODE);
 			BSP_LCD_SetFont(&Font12);
-			//BSP_LCD_DrawRect(55-1,15-1,250+1,150+1); // don't know if we need this
 			osMutexRelease(myMutex01Handle);
 
 			// free string
 			free(new_string);
 
-			safe_printf("Analog Value now: %d\n", get_analog_value());
+			safe_printf("Analog Value now: %d\n", val);
 		}
 		else {
 			safe_printf(CONSOLE_RED("Non numeric argument given.\n"));
@@ -89,6 +95,9 @@ void ls_func(uint8_t num_args, char **args)
 	// list present working directory files
 	FRESULT res;
 	char *buff = SD_get_Cwd();
+	if(get_debug_mode()) {
+		safe_printf("cwd: %s\n", buff);
+	}
 	if(buff == NULL) {
 		safe_printf(CONSOLE_RED("Failed to print directory listing.\n"));
 		 return;
@@ -465,6 +474,8 @@ void Ass_03_Task_01(void const * argument)
 
   safe_printf("Hello from Task 1 - Console (serial input)\n");
   safe_printf("INFO: Initialise LCD and TP first...\n");
+
+  set_debug_mode(false);
 
   // STEPIEN: Initialize and turn on LCD and calibrate the touch panel
   BSP_LCD_Init();

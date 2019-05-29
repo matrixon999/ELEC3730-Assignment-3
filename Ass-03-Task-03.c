@@ -23,26 +23,6 @@
 #define ON_COUNT   1
 #define OFF_COUNT 20
 
-/*// function for getting coordinates of touch on lcd
-uint8_t getfp(Coordinate *display)
-{
-	osEvent event;
-
-	// send message for task 2 to pick up
-	event = osMessageGet(myQueue01Handle, osWaitForever);
-    if (event.status == osEventMessage)
-    {
-
-    	display->x = (uint16_t)(event.value.v >> 16);
-    	display->y = (uint16_t)(event.value.v);
-    	return 0;
-    }
-    else
-    {
-    	return 1;
-    }
-}*/
-
 // function to check if button was touched
 bool isPress(Rectangle rec, int x, int y)
 {

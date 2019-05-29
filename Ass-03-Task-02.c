@@ -46,6 +46,11 @@ void draw_screen() {
 	BSP_LCD_DrawRect(rectangles[0].x, rectangles[0].y, rectangles[0].width, rectangles[0].height);
 	BSP_LCD_DisplayStringAt(rectangles[0].x + rectangles[0].width / 2, rectangles[0].y + rectangles[0].height / 2, "Start", CENTER_MODE);
 
+	// we don't want the zoom button anymore
+
+	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+	BSP_LCD_FillRect(rectangles[1].x, rectangles[1].y, rectangles[1].width + 2, rectangles[1].height);
+
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 
 	// draw graph square
@@ -85,7 +90,9 @@ void Ass_03_Task_02(void const * argument)
 					// if start button pressed
 					case Start:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Start\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Start\n"));
+						}
 
 						// toggle start/stop state
 						set_start(!get_start());
@@ -109,14 +116,19 @@ void Ass_03_Task_02(void const * argument)
 
 					case Zoom:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Zoom\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Zoom\n"));
+						}
 
 						//TODO implement this
 					} break;
 
 					case Load:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Load\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Load\n"));
+						}
+						set_analog_value(10);
 						// pause
 						set_start(false);
 
@@ -146,7 +158,9 @@ void Ass_03_Task_02(void const * argument)
 							safe_printf("Failed to read data\n");
 						}
 
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Copying data\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Copying data\n"));
+						}
 
 						// copy data
 						for(int i = 0; i < 10; i++)
@@ -154,12 +168,23 @@ void Ass_03_Task_02(void const * argument)
 							memcpy(get_ADC_Array(i), &data[i * 2000], 2000);
 						}
 
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Done copying\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Done copying\n"));
+						}
 
 						// free variables
 						free(data);
 						free(file_path);
 						free(file_num);
+
+						// redraw timescale
+						osMutexWait(myMutex01Handle, osWaitForever);
+						BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
+						BSP_LCD_SetFont(&Font8);
+						BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, "   ", CENTER_MODE);
+						BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, "10s", CENTER_MODE);
+						BSP_LCD_SetFont(&Font12);
+						osMutexRelease(myMutex01Handle);
 
 						// alert that we've loaded
 						set_loaded(true);
@@ -167,7 +192,9 @@ void Ass_03_Task_02(void const * argument)
 
 					case Store:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Store\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Store\n"));
+						}
 						// pause
 						set_start(false);
 
@@ -197,7 +224,9 @@ void Ass_03_Task_02(void const * argument)
 
 					case Minus:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Minus\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Minus\n"));
+						}
 
 						// calculate new position
 						int mem_loc = get_memory_location() - 1;
@@ -222,7 +251,9 @@ void Ass_03_Task_02(void const * argument)
 
 					case Plus:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Plus\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Plus\n"));
+						}
 
 						// calculate new position
 						int mem_loc = get_memory_location() + 1;
@@ -246,7 +277,9 @@ void Ass_03_Task_02(void const * argument)
 
 					case Mode:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Snake\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Snake\n"));
+						}
 						// Snake time
 						safe_printf("Snake time\n");
 						// pause rest of program
@@ -265,7 +298,9 @@ void Ass_03_Task_02(void const * argument)
 
 					default:
 					{
-						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Nothing\n"));
+						if(get_debug_mode()) {
+							safe_printf(CONSOLE_BLUE("Nothing\n"));
+						}
 					}
 				}
 			}
