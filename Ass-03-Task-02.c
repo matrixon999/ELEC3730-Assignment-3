@@ -14,13 +14,17 @@
 // buttons are pressed. See suggested updates for the touch panel task
 // that checks for button presses. Can do more in that task.
 
+// draws the screen
 void draw_screen() {
+	// lock mutex
 	osMutexWait(myMutex01Handle, osWaitForever);
 
+	// clear screen and setup colors nd fonts
 	BSP_LCD_Clear(LCD_COLOR_BLACK);
 	BSP_LCD_SetFont(&Font12);
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 	BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+	// for every rectangle in list, draw it with it's text string
 	for(int i = 0; i < sizeof(rectangles) / sizeof(Rectangle) - 2; i++)
 	{
 	  BSP_LCD_DrawRect(rectangles[i].x, rectangles[i].y, rectangles[i].width, rectangles[i].height);
@@ -36,7 +40,7 @@ void draw_screen() {
 	BSP_LCD_DrawRect(rectangles[11].x, rectangles[11].y, rectangles[11].width, rectangles[11].height);
 	BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, rectangles[11].text, CENTER_MODE);
 
-	// draw start button
+	// draw start button as correct colour
 	BSP_LCD_SetFont(&Font12);
 	BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
 	BSP_LCD_DrawRect(rectangles[0].x, rectangles[0].y, rectangles[0].width, rectangles[0].height);
@@ -44,41 +48,49 @@ void draw_screen() {
 
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 
-	// graph square
+	// draw graph square
 	BSP_LCD_DrawRect(55-1,15-1,250+1,150+1);
+
+	// release mutex
 	osMutexRelease(myMutex01Handle);
 }
 
 
 void Ass_03_Task_02(void const * argument)
 {
-
 	uint32_t loop=0;
-
 	Coordinate display;
 
 	osSignalWait(1,osWaitForever);
 	safe_printf("Hello from Task 2 - Pulse Rate Application (touch screen input)\n");
 
+	// draw the screen
 	draw_screen();
 
+	// loop forever
 	while (1)
 	{
+		// variable to hold our button press data
 		ButtonPress bp = 0;
+		// receive touch event from task 3
 		osEvent event = osMessageGet(myQueue01Handle, osWaitForever);
+		// make sure it's an event message
 		if (event.status == osEventMessage) {
+			// get button press value
 			bp = event.value.v;
-			//safe_printf("BP: %d\n", bp);
 
+			// if we're in normal mode (not snake mode)
 			if(!get_snake_time()) {
 				switch(bp) {
+					// if start button pressed
 					case Start:
 					{
-						safe_printf("Start\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Start\n"));
 
+						// toggle start/stop state
 						set_start(!get_start());
 
-						// draw start button
+						// redraw start button with correct and string
 						osMutexWait(myMutex01Handle, osWaitForever);
 						if(get_start()) {
 							BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
@@ -91,19 +103,21 @@ void Ass_03_Task_02(void const * argument)
 							BSP_LCD_DisplayStringAt(rectangles[0].x + rectangles[0].width / 2, rectangles[0].y + rectangles[0].height / 2, "     ", CENTER_MODE);
 							BSP_LCD_DisplayStringAt(rectangles[0].x + rectangles[0].width / 2, rectangles[0].y + rectangles[0].height / 2, "Stop", CENTER_MODE);
 						}
-
 						osMutexRelease(myMutex01Handle);
 
 					} break;
 
 					case Zoom:
 					{
-						safe_printf("Zoom\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Zoom\n"));
+
+						//TODO implement this
 					} break;
 
 					case Load:
 					{
-						safe_printf("Load\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Load\n"));
+						// pause
 						set_start(false);
 
 						// redraw stop
@@ -132,7 +146,7 @@ void Ass_03_Task_02(void const * argument)
 							safe_printf("Failed to read data\n");
 						}
 
-						safe_printf("Copying data\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Copying data\n"));
 
 						// copy data
 						for(int i = 0; i < 10; i++)
@@ -140,32 +154,21 @@ void Ass_03_Task_02(void const * argument)
 							memcpy(get_ADC_Array(i), &data[i * 2000], 2000);
 						}
 
-						/*for(int i = 0; i < 10; i++) {
-							set_ADC_Pos(i);
-							uint32_t new_pos = i*2000;
-
-							for(int j = 0; j < 2000; j+=2) {
-
-								uint16_t val = ((uint16_t)data[new_pos + j+1] << 8) | data[new_pos + j];
-
-								set_ADC_Value(j/2, val);
-							}
-						}*/
-
-						safe_printf("Done copying\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Done copying\n"));
 
 						// free variables
 						free(data);
 						free(file_path);
 						free(file_num);
 
-						// alert that we;ve loaded
+						// alert that we've loaded
 						set_loaded(true);
 					} break;
 
 					case Store:
 					{
-						safe_printf("Store\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Store\n"));
+						// pause
 						set_start(false);
 
 						// allocate data
@@ -188,85 +191,84 @@ void Ass_03_Task_02(void const * argument)
 						free(file_path);
 						free(file_num);
 
+						// start up again
 						set_start(true);
 					} break;
 
 					case Minus:
 					{
-						// update memory
-						// redraw
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Minus\n"));
 
+						// calculate new position
 						int mem_loc = get_memory_location() - 1;
 						set_memory_location(mem_loc);
 						if(mem_loc < 1) mem_loc = 1;
 
+						// get string from number
 						char *str;
 						asprintf(&str, "%d", mem_loc);
 						rectangles[7].text = str;
 
+						// update text
 						osMutexWait(myMutex01Handle, osWaitForever);
 						BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 						BSP_LCD_DisplayStringAt(rectangles[7].x + rectangles[7].width / 2, rectangles[7].y + rectangles[7].height / 2, rectangles[7].text, CENTER_MODE);
 						osMutexRelease(myMutex01Handle);
 
+						// free number string
 						free(str);
 
 					} break;
 
 					case Plus:
 					{
-						// update val
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Plus\n"));
+
+						// calculate new position
 						int mem_loc = get_memory_location() + 1;
 						set_memory_location(mem_loc);
 						if(mem_loc < 1) mem_loc = 1;
 
-						// case to string
+						// get string from number
 						char *str;
 						asprintf(&str, "%d", mem_loc);
 						rectangles[7].text = str;
 
-						// draw
+						// update text
 						osMutexWait(myMutex01Handle, osWaitForever);
 						BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 						BSP_LCD_DisplayStringAt(rectangles[7].x + rectangles[7].width / 2, rectangles[7].y + rectangles[7].height / 2, rectangles[7].text, CENTER_MODE);
 						osMutexRelease(myMutex01Handle);
 
+						// free number string
 						free(str);
 					} break;
 
 					case Mode:
 					{
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Snake\n"));
 						// Snake time
 						safe_printf("Snake time\n");
+						// pause rest of program
 						set_start(false);
 						set_snake_time(true);
+						// run snake program
 						run_snake_time();
+
+						// redraw screen
 						draw_screen();
+
+						// start up program again
 						set_snake_time(false);
 						set_start(true);
 					} break;
 
 					default:
 					{
-						safe_printf("Nothing\n");
+						if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Nothing\n"));
 					}
 				}
 			}
 		}
-
-		/*if (getfp(&display) == 0)
-		{
-			if((display.y > YOFF+5) && (display.y < YOFF+YSIZE-5) &&
-				(display.x > XOFF+5) && (display.x < XOFF+XSIZE-5))
-			{
-				osMutexWait(myMutex01Handle, osWaitForever);
-				BSP_LCD_FillCircle(display.x, display.y, 2);
-				osMutexRelease(myMutex01Handle);
-				loop++;
-				safe_printf("Task 2: %d (got  %3d,%3d)\n", loop, display.x, display.y);
-
-
-			}
-		}*/
 	}
 }

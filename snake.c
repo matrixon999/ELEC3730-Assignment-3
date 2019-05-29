@@ -71,7 +71,7 @@ void run_snake_time()
 	}
 	body[length - 1] = pos;
 
-	srand(1);
+	srand(HAL_GetTick());
 	vector food = { (rand() % 32) * 10, (rand() % 24) * 10 };
 
 	int score = 0;

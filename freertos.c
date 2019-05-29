@@ -79,6 +79,7 @@ osSemaphoreId myBinarySem06Handle;
 osSemaphoreId myCountingSem01Handle;
 
 osMutexId globalVariableHandle; // Protect global variables
+osMutexId SDCardMutexHandle; // mutex to protect sd card access
 
 /* USER CODE BEGIN Variables */
 /* USER CODE END Variables */
@@ -126,6 +127,9 @@ void MX_FREERTOS_Init(void) {
 
   osMutexDef(globalVariableMutex);
   globalVariableHandle = osMutexCreate(osMutex(globalVariableMutex));
+
+  osMutexDef(SDCardMutex);
+  SDCardMutexHandle = osMutexCreate(osMutex(SDCardMutex));
 
 
   /* Create the semaphores(s) */

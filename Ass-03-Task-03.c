@@ -23,13 +23,16 @@
 #define ON_COUNT   1
 #define OFF_COUNT 20
 
+/*// function for getting coordinates of touch on lcd
 uint8_t getfp(Coordinate *display)
 {
 	osEvent event;
 
+	// send message for task 2 to pick up
 	event = osMessageGet(myQueue01Handle, osWaitForever);
     if (event.status == osEventMessage)
     {
+
     	display->x = (uint16_t)(event.value.v >> 16);
     	display->y = (uint16_t)(event.value.v);
     	return 0;
@@ -38,13 +41,15 @@ uint8_t getfp(Coordinate *display)
     {
     	return 1;
     }
-}
+}*/
 
+// function to check if button was touched
 bool isPress(Rectangle rec, int x, int y)
 {
 	return (x > rec.x && y > rec.y && x < (rec.x + rec.width) && y < (rec.y + rec.height));
 }
 
+// convert x,y coordinates of touch to enum representation of button press
 ButtonPress getButtonPress(int x, int y)
 {
 	for(int i = 0; i < sizeof(rectangles) / sizeof(Rectangle); i++)
@@ -57,6 +62,13 @@ ButtonPress getButtonPress(int x, int y)
 	return 0;
 }
 
+bool get_touch_point(Coordinate *display) {
+	osMutexWait(myMutex01Handle, osWaitForever);
+	uint8_t result = BSP_TP_GetDisplayPoint(display);
+	osMutexRelease(myMutex01Handle);
+	return result != 0;
+}
+
 void Ass_03_Task_03(void const * argument)
 {
 	int8_t pressed_count=ON_COUNT;  // Debounce counter (not pressed)
@@ -66,13 +78,16 @@ void Ass_03_Task_03(void const * argument)
 	osSignalWait(1,osWaitForever);
 	safe_printf("Hello from Task 3 - Front Panel (detects touch screen presses)\n");
 
+	// loop forever
 	while (1)
 	{
-		if (BSP_TP_GetDisplayPoint(&display) != 0)
+		// get touch position
+		if (get_touch_point(&display))
 		{
 			// Not pressed: reset debounce counter
 			if (pressed_count < 0)
 			{
+				// increase press counter
 				pressed_count++;
 				if (pressed_count == 0)
 				{
@@ -106,6 +121,7 @@ void Ass_03_Task_03(void const * argument)
 				pressed_count = -OFF_COUNT;
 			}
 		}
+
 		// Wait before checking key pressed again
 		osSemaphoreWait(myBinarySem04Handle, osWaitForever);
 	}

@@ -17,22 +17,25 @@
 /*uint8_t myReadFile();
 uint8_t myWriteFile();*/
 
-//FIL MyFile;
 FIL MyFile2, MyFile3;
 FRESULT Status;
 
+// function to enable and disable debug mode
 void debug_func(uint8_t num_args, char **args)
 {
 	// if no arguments, print status
 	if(num_args == 0) {
-		safe_printf("Debug mode: %s\n", get_debug_mode_status ? "Enabled" : "Disabled");
+		safe_printf("Debug mode: %s\n", get_debug_mode_status() ? "Enabled" : "Disabled");
 	}
+	// else, check second argument
 	else {
 		if(strcmp(args[0], "on") == 0) {
-			debug_mode_enabled = true;
+			set_debug_mode_status(true);
+			safe_printf("Debug mode is on\n");
 		}
 		else if(strcmp(args[0], "off") == 0) {
-			debug_mode_enabled = false;
+			set_debug_mode_status(false);
+			safe_printf("Debug mode is off\n");
 		}
 		else {
 			safe_printf(CONSOLE_RED("Unknown parameter given\n"));
@@ -40,30 +43,39 @@ void debug_func(uint8_t num_args, char **args)
 	}
 }
 
+// function to set the analog value
 void analog_func(uint8_t num_args, char **args)
 {
 	// if no arguments, print status
 	if(num_args == 0) {
-		safe_printf("Analog Value Currently: %d\n", analog_value);
+		safe_printf("Analog Value Currently: %d\n", get_analog_value());
 	}
 	else {
+		// make sure argument given is numeric
 		if(is_numeric(args[0])) {
+			// convert given argument to int
 			int val = to_int(args[0]);
+			// set the analog value
 			set_analog_value(val);
 
+			// create string for updating screen
 			char* new_string = malloc(4);
 			sprintf(new_string, "%ds", val);
 
+			// update screen
 			osMutexWait(myMutex01Handle, osWaitForever);
 			BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 			BSP_LCD_SetFont(&Font8);
 			BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, "   ", CENTER_MODE);
 			BSP_LCD_DisplayStringAt(rectangles[11].x + rectangles[11].width / 2, rectangles[11].y + rectangles[11].height / 2, new_string, CENTER_MODE);
 			BSP_LCD_SetFont(&Font12);
-			BSP_LCD_DrawRect(55-1,15-1,250+1,150+1);
+			//BSP_LCD_DrawRect(55-1,15-1,250+1,150+1); // don't know if we need this
 			osMutexRelease(myMutex01Handle);
 
+			// free string
 			free(new_string);
+
+			safe_printf("Analog Value now: %d\n", get_analog_value());
 		}
 		else {
 			safe_printf(CONSOLE_RED("Non numeric argument given.\n"));
@@ -71,77 +83,92 @@ void analog_func(uint8_t num_args, char **args)
 	}
 }
 
+// function to print files in working directory
 void ls_func(uint8_t num_args, char **args)
 {
 	// list present working directory files
-
-	FATFS fs;
 	FRESULT res;
-	char buff[256];
+	char *buff = SD_get_Cwd();
+	if(buff == NULL) {
+		safe_printf(CONSOLE_RED("Failed to print directory listing.\n"));
+		 return;
+	}
 
-	strcpy(buff, SD_get_Cwd());
 	res = SD_Scan_Directory(buff);
+
+	free(buff);
 }
 
+// function to change working directory
 void cd_func(uint8_t num_args, char **args)
 {
-	// if no arguments, print status
 	if(num_args == 0) {
 		safe_printf("No argument given.\n");
 	}
 	else {
+		// change the directory
 		bool result = SD_Change_Directory(args[0]);
+		// check success
 		if(!result) {
 			safe_printf(CONSOLE_RED("Directory does not exist.\n"));
 		}
 	}
 }
 
+// function to make directory
 void mkdir_func(uint8_t num_args, char **args)
 {
-	// if no arguments, print status
 	if(num_args == 0) {
 		safe_printf("No argument given.\n");
 	}
 	else {
+		// try to create directory
 		bool result = SD_Create_Directory(args[0]);
+		// check success
 		if(!result) {
-			safe_printf(CONSOLE_RED("Directory already exists.\n"));
+			safe_printf(CONSOLE_RED("Unable to create folder.\n"));
 		}
 	}
 }
 
+// function to copy files and folders
 void cp_func(uint8_t num_args, char **args)
 {
-	// if no arguments, print status
 	if(num_args == 0) {
 		safe_printf("No argument given.\n");
 	}
 	else {
-		safe_printf("file 1 %s\n", args[0]);
-		safe_printf("file 2 %s\n", args[1]);
+		// copy file
 		bool result = SD_Copy(args[0], args[1]);
+		// check success
 		if(!result) {
 			safe_printf(CONSOLE_RED("Copy Failed.\n"));
 		}
 	}
 }
 
+// function to remove files and folders
 void rm_func(uint8_t num_args, char **args)
 {
-	// if no arguments, print status
 	if(num_args == 0) {
 		safe_printf("No argument given.\n");
 	}
 	else if(num_args == 1) {
+		// doesn't actually handle flags correctly, but just for fun
+		// if argument is rf, delete everything
 		if(strcmp(args[0], "rf") == 0) {
 			safe_printf("Deleting everything in folder\n");
+			// get current working directory
 			char *cwd = SD_get_Cwd();
+			// delete everything
 			SD_Delete_Everything(cwd);
 
+			// free data
 			free(cwd);
 		} else {
+			// else, just delete file given in first argument
 			bool result = SD_Delete(args[0]);
+			// check success
 			if(!result) {
 				safe_printf(CONSOLE_RED("Delete Failed.\n"));
 			}
@@ -149,120 +176,169 @@ void rm_func(uint8_t num_args, char **args)
 	}
 }
 
+// function to print working directory
 void cwd_func(uint8_t num_args, char **args)
 {
+	// prints out working directory
 	SD_Cwd();
 }
 
+// function to move files and folders
 void mv_func(uint8_t num_args, char **args)
 {
+	// make sure there enough arguments are given
 	if(num_args < 2) {
 		safe_printf("Incorrect number of argument given.\n");
 	}
 	else {
+		// move file and check success
 		if(!SD_Move_File(args[0], args[1])) {
 			safe_printf(CONSOLE_RED("Failed to move file.\n"));
 		}
 	}
 }
 
+// function to rename files and folders
 void ren_func(uint8_t num_args, char **args)
 {
+	// make sure enough arguments given
 	if(num_args < 2) {
 		safe_printf("Incorrect number of argument given.\n");
 	}
 	else {
+		// move is also used for renaming, check success
 		if(!SD_Move_File(args[0], args[1])) {
 			safe_printf(CONSOLE_RED("Failed to rename file.\n"));
 		}
 	}
 }
 
+// function to print out directory tree
 void tree_func(uint8_t num_args, char **args)
 {
 	bool result = true;
+	// if no arguments given
 	if(num_args == 0) {
+		// get current working directory
 		char *cwd = SD_get_Cwd();
+		// print tree from here
 		result = SD_Tree(cwd);
+		// free string
 		free(cwd);
 	} else {
+		// if argument given, print tree from that directory
 		result = SD_Tree(args[0]);
 	}
 
+	// check success
 	if(!result) {
 		safe_printf(CONSOLE_RED("Failed to print tree.\n"));
 	}
 }
 
+// function to print data in a file
 void cat_func(uint8_t num_args, char **args)
 {
+	// check correct number of arguments given
 	if(num_args == 0) {
 		safe_printf("Invalid number of arguments given.\n");
 		return;
 	}
+
+	// variables for to hold data read from file
 	char *data;
 	int length;
+	// read data from file
 	bool result = SD_Read_File(args[0], &data, &length);
+	// check success
 	if(!result) {
 		safe_printf(CONSOLE_RED("Failed to read file %s.\n"), args[0]);
 		return;
 	}
 
+	// print out every character
 	for(int i = 0; i < length; i++) {
 		safe_printf("%c", data[i]);
 	}
 	safe_printf("\n");
+
+	// free file data
+	free(data);
 }
 
+// function to print just the first 10 lines of file
 void head_func(uint8_t num_args, char **args)
 {
+	// check file given as argument
 	if(num_args == 0) {
 		safe_printf("Invalid number of arguments given.\n");
 		return;
 	}
+
+	// variables for to hold data read from file
 	char *data;
 	int length;
+	// read data from file
 	bool result = SD_Read_File(args[0], &data, &length);
+	// check success
 	if(!result) {
 		safe_printf(CONSOLE_RED("Failed to read file %s.\n"), args[0]);
 		return;
 	}
 
+	// print out every character
 	for(int i = 0; i < 10; i++) {
 		safe_printf("%c", data[i]);
 	}
 	safe_printf("\n");
+
+	// free file data
+	free(data);
 }
 
+// function to print just the last 10 lines of file
 void tail_func(uint8_t num_args, char **args)
 {
+	// check file given as argument
 	if(num_args == 0) {
 		safe_printf("Invalid number of arguments given.\n");
 		return;
 	}
+	// variables for to hold data read from file
 	char *data;
 	int length;
+	// read data from file
 	bool result = SD_Read_File(args[0], &data, &length);
+	// check success
 	if(!result) {
 		safe_printf(CONSOLE_RED("Failed to read file %s.\n"), args[0]);
 		return;
 	}
 
+	// print characters
 	for(int i = length - 10 - 1; i < length; i++) {
 		safe_printf("%c", data[i]);
 	}
 	safe_printf("\n");
+
+	// free file data
+	free(data);
 }
 
+// function to clear the screen
 void clear_func(uint8_t num_args, char **args)
 {
+	// just prints 50 newlines
+	// just hides the screen, but it's all we can do from here
 	for(int i = 0; i < 50; i++) {
 		safe_printf("\n");
 	}
 }
 
+// function to print out help for all commands
 void help_func(uint8_t num_args, char **args)
 {
+	// if no arguments given, print help for all commands
 	if(num_args == 0) {
 		safe_printf(CONSOLE_YELLOW("Help: All functions.\n"));
 		for(int i = 0; i < get_rectangles_length(); i++)
@@ -270,12 +346,16 @@ void help_func(uint8_t num_args, char **args)
 			safe_printf(CONSOLE_YELLOW("%s\n"), Commands[i].help_string);
 		}
 	}
+	// if argument given, print help for that one
 	else if(num_args == 1)
 	{
+		// loop over all commands
 		for(int i = 0; i < get_rectangles_length(); i++)
 		{
+			// check if it's the commands given
 			if(strcmp(args[0], Commands[i].function_name) == 0)
 			{
+				// print it's help string
 				safe_printf(CONSOLE_YELLOW("%s\n"), Commands[i].help_string);
 				return;
 			}
@@ -285,6 +365,7 @@ void help_func(uint8_t num_args, char **args)
 	}
 }
 
+// function splits input string into words and then processes them
 void CommandProcessor(char *str)
 {
 	// separates input into words
@@ -311,46 +392,65 @@ void CommandProcessor(char *str)
 	safe_printf(CONSOLE_RED(" Command not found.\n"));
 }
 
+// variables to hold input string data and state
 static char *in_string;
 static int in_initialized = 0;
 void Parser()
 {
+	// if string needs to be initialised or reset
 	if(in_initialized == 0)
 	{
+		// if data in string, free it
 		if(in_string != NULL)
 		{
 			free(in_string);
 		}
+		// allocate data for new string
 		in_string = malloc(2);
+		// check fail
 		if(in_string == NULL) {
-			safe_printf("Fucked up malloc\n");
+			safe_printf(CONSOLE_RED("Failed to allocate data for input string\n"));
 		}
+		// setup string
 		strcpy(in_string, "");
 		in_initialized = 1;
 	}
 
-	char c;
-
-	c = getchar();
+	// get character from console
+	char c = getchar();
+	// check if it's a command ASCII character
 	if ((c < 32) | (c > 126))
 	{
+		// if backspace
 		if(c == 127) {
+			// print backspace
 			safe_printf("%c", (char)127);
+			// remove last character from input strung
 			in_string[strlen(in_string)-1] = '\0';
 		}
+		// if enter\return
 		else if(c == 13) {
+			// print newline
 			safe_printf("%c", c);
+			// process string
 			CommandProcessor(in_string);
+			// flag that string needs to be reset
 			in_initialized = 0;
 		}
 	}
+	// if just normal alphanumeric stuff
 	else
 	{
+		// allocate more memory for string
 		in_string = realloc(in_string, 1 + strlen(in_string) + 1);
+		// check fail
 		if(in_string == NULL) {
-			safe_printf("Something fucked up big time\n");
+			safe_printf(CONSOLE_RED("Failed to allocate memory for string\n"));
 		}
+
+		// add to string
 		strcat(in_string, &c);
+		// print what we got
 		safe_printf("%c", c);
 	}
 }
@@ -384,71 +484,9 @@ void Ass_03_Task_01(void const * argument)
   BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
   osMutexRelease(myMutex01Handle);
 
+  // loop and handle input
   while (1)
   {
 	  Parser();
   }
 }
-
-/*uint8_t myReadFile()
-{
-#define READ_FILE "Hello.txt"
-#define BUFF_SIZE 256
-	uint8_t rtext[BUFF_SIZE];
-	FRESULT res;
-	uint32_t bytesread;
-
-	// Open file Hello.txt
-	if((res = f_open(&MyFile, READ_FILE, FA_READ)) != FR_OK)
-	{
-		safe_printf("ERROR: Opening '%s'\n", READ_FILE);
-		return 1;
-	}
-	safe_printf("Task 1: Opened file '%s'\n", READ_FILE);
-
-	// Read data from file
-	if ((res = f_read(&MyFile, rtext, BUFF_SIZE-1, &bytesread)) != FR_OK)
-	{
-		safe_printf("ERROR: Reading '%s'\n", READ_FILE);
-		f_close(&MyFile);
-		return 1;
-	}
-	rtext[bytesread] = '\0';
-	safe_printf("Task 1: Read: '%s'\n", rtext);
-
-	// Close file
-	f_close(&MyFile);
-
-	return 0;
-}
-
-uint8_t myWriteFile()
-{
-#define WRITE_FILE "There.txt"
-	FRESULT res;
-	UINT byteswritten;
-
-	// Open file There.txt
-	if((res = f_open(&MyFile, WRITE_FILE, FA_CREATE_ALWAYS | FA_WRITE)) != FR_OK)
-	{
-		safe_printf("ERROR: Opening '%s'\n", WRITE_FILE);
-		return 1;
-	}
-	safe_printf("Task 1: Opened file '%s'\n", WRITE_FILE);
-
-	// Write to file
-	if ((res = f_write(&MyFile, "Hello", 6, &byteswritten)) != FR_OK)
-	{
-		safe_printf("ERROR: Writing '%s'\n", WRITE_FILE);
-		f_close(&MyFile);
-		return 1;
-	}
-	safe_printf("Task 1: Written: %d bytes\n", byteswritten);
-
-	// Close file
-	f_close(&MyFile);
-
-
-	return 0;
-}
-*/

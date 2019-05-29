@@ -26,46 +26,51 @@ static uint16_t last_xpos=0;
 static uint16_t last_ypos=0;
 
 void draw_loaded() {
-	safe_printf("Drawing loaded data\n");
+	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Drawing loaded data\n"));
+	// reset position values
 	xpos=0;
 	ypos=0;
 	last_xpos=0;
 	last_ypos=0;
 
+	// loc kdrawing mutex
 	osMutexWait(myMutex01Handle, osWaitForever);
 
+	// clear whole box, probably not needed
+	/*// draw bounding box
 	BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
-	BSP_LCD_FillRect(XOFF,YOFF,XSIZE-1,YSIZE-1);
-	BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+	BSP_LCD_FillRect(XOFF,YOFF,XSIZE-1,YSIZE-1);*/
 
-	/*
-	 * for 25 pixels
-	 * x = xoff + i * 25
-	 */
-
+	// for each second
 	for(int i = 0; i < 10; i++) {
+	  // update our ad position
 	  set_ADC_Pos(i);
+	  // calculate xpos for this second
 	  xpos = i * 25;
 
-	  //for(int j=0;j<1000;j += 1000/40)
+	  // 25 pixels per second,
+	  // for each one
 	  for(int j = 0; j < 25; j++)
 	  {
+		  // draw black vertical to clear last value
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
 		  BSP_LCD_DrawVLine(XOFF+xpos,YOFF,YSIZE);
-		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
-		  //ypos=(uint16_t)((uint32_t)(get_ADC_Value(j*40))*YSIZE/4096);
 
-		  // scale to 0 - 135
+		  // set colour back to green
+		  BSP_LCD_SetTextColor(LCD_COLOR_GREEN);
+
+		  // calculate ypos
 		  uint16_t val = get_ADC_Value(j*40);
 		  ypos = ((val)*(150))/(4096);
-		  //safe_printf("val: %d - ypos: %d\n", val, ypos);
+		  // draw point
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
+		  // update positions
 		  last_xpos=xpos;
 		  last_ypos=ypos;
-
 		  xpos++;
 	  }
 	}
+	// release mutex
 	osMutexRelease(myMutex01Handle);
 }
 
@@ -78,10 +83,6 @@ void Ass_03_Task_04(void const * argument)
 	ypos=0;
 	last_xpos=0;
 	last_ypos=0;
-  //uint16_t xpos=0;
-  //uint16_t ypos=0;
-  //uint16_t last_xpos=0;
-  //uint16_t last_ypos=0;
 
   osSignalWait(1,osWaitForever);
   safe_printf("Hello from Task 4 - Analog Input (turn ADC knob or use pulse sensor)\n");
@@ -92,41 +93,69 @@ void Ass_03_Task_04(void const * argument)
   osMutexRelease(myMutex01Handle);
 
   // Start the conversion process
-
-  // fix
+  // set dma address to our array
   status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)get_DMA_Value_p(), 1000);
   if (status != HAL_OK)
   {
-	  safe_printf("ERROR: Task 4 HAL_ADC_Start_DMA() %d\n", status);
+	  safe_printf(CONSOLE_RED("ERROR: Task 4 HAL_ADC_Start_DMA() %d\n"), status);
   }
 
+  // value for checking if we need to reset everything after playing snake
   bool reset_after_snake = false;
 
-
+  // scale factor for drawing different analog times
   int x = 500;
 
   // Start main loop
   while (1)
   {
-	  x = get_analog_value() * 50 - 1;
+	  // calculate analog value
+	  x = get_analog_value() * 50;
 
-	  if(get_loaded() == true) {
+	  // if we just loaded, draw and reset
+	  if(get_loaded()) {
+		  //draw
 		  draw_loaded();
+
+		  // reset position values
 		  xpos=0;
 			ypos=0;
 			last_xpos=0;
 			last_ypos=0;
+		  // reset flags
 		  set_loaded(false);
+
+		  // reset adc array
+		  osMutexWait(globalVariableHandle, osWaitForever);
+
+		  for(int i = 0; i < 10; i++)
+		  {
+			  for(int j = 0; j < 1000; j++)
+			  {
+				  ADC_Value[i][j] = 0;
+			  }
+		  }
+		  osMutexRelease(globalVariableHandle);
+		  set_ADC_Pos(0);
+
+		  	// reset analog value
+		  set_analog_value(10); // to fix weird graph glitches
 		  continue;
 	  }
 
+	  // if we're paused, just wait and loop
 	  if(!get_start()) {
 		  osDelay(100);
 		  continue;
 	  }
+	  // if we're playing snake, flag reset
 	  if(get_snake_time()) {
 		  reset_after_snake = true;
-	  } else if(reset_after_snake) {
+	  }
+	  // after playing snake, reset positions
+	  else if(reset_after_snake) {
+		  xpos = 0;
+		  ypos = 0;
 		  last_xpos=0;
 		  last_ypos=0;
 	  }
@@ -134,6 +163,7 @@ void Ass_03_Task_04(void const * argument)
 	  // Wait for first half of buffer
 	  osSemaphoreWait(myBinarySem05Handle, osWaitForever);
 	  osMutexWait(myMutex01Handle, osWaitForever);
+	  // draw first values
 	  for(i=0;i<500;i=i+x)
 	  {
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
@@ -142,7 +172,6 @@ void Ass_03_Task_04(void const * argument)
 
 		  ypos=(uint16_t)((uint32_t)(get_DMA_Value(i))*YSIZE/4096);
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
-		  // BSP_LCD_FillRect(xpos,ypos,1,1);
 		  last_xpos=xpos;
 		  last_ypos=ypos;
 		  xpos++;
@@ -159,6 +188,7 @@ void Ass_03_Task_04(void const * argument)
 	  osSemaphoreWait(myBinarySem06Handle, osWaitForever);
 	  HAL_GPIO_WritePin(GPIOD, LD4_Pin, GPIO_PIN_SET);
 	  osMutexWait(myMutex01Handle, osWaitForever);
+	  // draw second values
 	  for(i=0;i<500;i=i+x)
 	  {
 		  BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
@@ -167,7 +197,6 @@ void Ass_03_Task_04(void const * argument)
 
 		  ypos=(uint16_t)((uint32_t)(get_DMA_Value(i+500))*YSIZE/4096);
 		  BSP_LCD_DrawLine(XOFF+last_xpos,YOFF+last_ypos,XOFF+xpos,YOFF+ypos);
-		  // BSP_LCD_FillCircle(xpos,ypos,2);
 		  last_xpos=xpos;
 		  last_ypos=ypos;
 		  xpos++;

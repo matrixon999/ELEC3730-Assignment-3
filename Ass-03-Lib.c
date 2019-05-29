@@ -26,7 +26,7 @@ bool is_numeric(char *str)
 int to_int(char *str)
 {
 	int ret;
-	int result = sscanf(str, "%d", &ret);
+	sscanf(str, "%d", &ret);
 
 	return ret;
 }
@@ -168,14 +168,9 @@ uint16_t get_ADC_Value(int i)
 {
 	osMutexWait(globalVariableHandle, osWaitForever);
 	int pos = ADC_Pos;
-	//safe_printf("ADC_Pos value %d\n", pos);
-	//safe_printf("i value %d\n", i);
-
 	uint16_t result = ADC_Value[pos][i];
 
 	osMutexRelease(globalVariableHandle);
-
-	//safe_printf("returning value %d\n", result);
 
 	return result;
 }
@@ -186,14 +181,13 @@ uint16_t *get_ADC_Value_p()
 	uint16_t *result = &ADC_Value[ADC_Pos];
 	osMutexRelease(globalVariableHandle);
 
-	//safe_printf("address: 0x%X\n", result);
-
 	return result;
 }
 
 uint16_t **get_ADC_Total_p()
 {
 	osMutexWait(globalVariableHandle, osWaitForever);
+	safe_printf("Known ADC_Value: 0x%X\n", ADC_Value);
 	uint16_t **result = ADC_Value;
 	osMutexRelease(globalVariableHandle);
 
@@ -230,7 +224,7 @@ uint16_t *get_Copy_ADC_Array(int i)
 	osMutexWait(globalVariableHandle, osWaitForever);
 	uint16_t *data = malloc(2000);
 	if(data == NULL) {
-		safe_printf("Failed to allocate memory for data copy\n");
+		safe_printf(CONSOLE_RED("Failed to allocate memory for data copy\n"));
 		return NULL;
 	}
 	memcpy(data, ADC_Value[i], 2000);
@@ -355,9 +349,9 @@ Rectangle* get_rectangles()
 
 FRESULT SD_Scan_Directory(char *path)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res;
 	DIR dir;
-	UINT i;
 	static FILINFO fno;
 
 	int num_files = 0;
@@ -368,16 +362,7 @@ FRESULT SD_Scan_Directory(char *path)
 	if (res == FR_OK) {
 		for (;;) {
 			res = f_readdir(&dir, &fno);                   /* Read a directory item */
-			if (res != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
-//			if (fno.fattrib & AM_DIR) {                    /* It is a directory */
-//				i = strlen(path);
-//				sprintf(&path[i], "/%s", fno.fname);
-//				res = SD_Scan_Directory(path);                    /* Enter the directory */
-//				if (res != FR_OK) break;
-//				path[i] = 0;
-//			} else {                                       /* It is a file. */
-//				safe_printf("%s/%s\n", path, fno.fname);
-//			}
+			if (res != FR_OK || fno.fname[0] == 0) break;
 
 			if(fno.fattrib & AM_DIR) {
 				num_folders++;
@@ -387,21 +372,22 @@ FRESULT SD_Scan_Directory(char *path)
 				num_files++;
 				safe_printf(CONSOLE_CYAN("%s/%s\n"), path, fno.fname);
 			}
-
-			//safe_printf("%s/%s\n", path, fno.fname);
 		}
 		f_closedir(&dir);
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return res;
 }
 
 bool SD_Change_Directory(char *str)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_chdir(str);
 	if(res != FR_OK) {
-		safe_printf("Failed to Change Directory to %s.\n", str);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to Change Directory to %s.\n"), str);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
@@ -410,22 +396,27 @@ bool SD_Change_Directory(char *str)
 
 bool SD_Create_Directory(char *str)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_mkdir(str);
 	if(res != FR_OK) {
-		safe_printf("Failed to Create Directory %s.\n", str);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to Create Directory %s.\n"), str);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 bool SD_Copy(char *src, char *dst)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_open(&MyFile, src, FA_READ);
 	if(res != FR_OK) {
-		safe_printf("Failed to open file %s\n", src);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to open file %s\n"), src);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
@@ -433,18 +424,20 @@ bool SD_Copy(char *src, char *dst)
 
 	uint8_t* data = calloc(size, 1);
 	if(data == NULL) {
-		safe_printf("Failed to allocate memory for reading file.\n");
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to allocate memory for reading file.\n"));
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 	uint32_t bytes_read;
 
 	res = f_read(&MyFile, data, size-1, &bytes_read);
 	if(res != FR_OK) {
-		safe_printf("Failed to read file %s\n", src);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to read file %s\n"), src);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
 		free(data);
 		f_close(&MyFile);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
@@ -455,8 +448,9 @@ bool SD_Copy(char *src, char *dst)
 	// read destination file
 	res = f_open(&MyFile, dst, FA_CREATE_NEW | FA_WRITE);
 	if(res != FR_OK) {
-		safe_printf("Failed to open file %s\n", src);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to open file %s\n"), src);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		free(data);
 		return false;
 	}
@@ -464,108 +458,140 @@ bool SD_Copy(char *src, char *dst)
 	uint32_t bytes_written;
 	res = f_write(&MyFile, data, bytes_read, &bytes_written);
 	if(res != FR_OK) {
-		safe_printf("Failed to write to new file.\n");
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to write to new file.\n"));
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
 		free(data);
 		f_close(&MyFile);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
 	f_close(&MyFile);
 
 	free(data);
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 char *SD_get_Cwd()
 {
-	char *buf = malloc(255);
-	FRESULT res = f_getcwd(buf, 255);
-	if(res != FR_OK)
-	{
-		safe_printf("Failed to get current working directory.\n");
-		safe_printf("Error code: %d\n", res);
-		return "";
-	}
-
-	return buf;
-}
-
-bool SD_Cwd()
-{
+	osMutexWait(myMutex01Handle, osWaitForever);
 	char buf[255];
 	FRESULT res = f_getcwd(buf, 255);
 	if(res != FR_OK)
 	{
-		safe_printf("Failed to get current working directory.\n");
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to get current working directory.\n"));
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
+		return NULL;
+	}
+
+	char *retbuf = malloc(255);
+	if(retbuf == NULL) {
+		safe_printf(CONSOLE_RED("Failed to get current working directory. Allocation failed.\n"));
+		osMutexRelease(myMutex01Handle);
+		return NULL;
+	}
+
+	strcpy(retbuf, buf);
+
+	osMutexRelease(myMutex01Handle);
+	return retbuf;
+}
+
+bool SD_Cwd()
+{
+	osMutexWait(myMutex01Handle, osWaitForever);
+	char buf[255];
+	FRESULT res = f_getcwd(buf, 255);
+	if(res != FR_OK)
+	{
+		safe_printf(CONSOLE_RED("Failed to get current working directory.\n"));
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
 	safe_printf("%s\n", buf);
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 bool SD_Delete(char *str)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_unlink(str);
 	if(res != FR_OK) {
-		safe_printf("Failed to delete file %s.\n", str);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to delete file %s.\n"), str);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 bool SD_Write_File(char *file_path, uint8_t* data, int length)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_open(&MyFile, file_path, FA_WRITE | FA_CREATE_ALWAYS);
 	if(res != FR_OK) {
-		safe_printf("Failed to open file %s.\n", file_path);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to open file %s.\n"), file_path);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
 	uint32_t bytes_written;
 	res = f_write(&MyFile, data, length, &bytes_written);
 	if(res != FR_OK) {
-		safe_printf("Failed to write to file %s.\n", file_path);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to write to file %s.\n"), file_path);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
 		f_close(&MyFile);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
-	safe_printf("Wrote %d bytes\n", bytes_written);
+	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Wrote %d bytes\n"), bytes_written);
 
-	safe_printf("Write to file successful\n");
+	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Write to file successful\n"));
 
 	f_close(&MyFile);
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 bool SD_Write_File_Offset(char *file_path, uint16_t** data, int offset)
 {
+	safe_printf("file_path: %s\n", file_path);
+	safe_printf("data address: 0x%X\n", data);
+	safe_printf("offset: %d\n", offset);
+
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_open(&MyFile, file_path, FA_WRITE | FA_CREATE_ALWAYS);
 	if(res != FR_OK) {
-		safe_printf("Failed to open file %s.\n", file_path);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to open file %s.\n"), file_path);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
-	bool done = false;
 	int pos = offset;
 	while(1) {
 		uint16_t *data_b = get_Copy_ADC_Array(pos);
 
 		UINT bytes_written;
+		safe_printf("Before\n");
 		res = f_write(&MyFile, data_b, 2000, &bytes_written);
+		safe_printf("After\n");
 		if(res != FR_OK) {
-			safe_printf("Failed to write to file %s.\n", file_path);
-			safe_printf("Error code: %d\n", res);
+			safe_printf(CONSOLE_RED("Failed to write to file %s.\n"), file_path);
+			safe_printf(CONSOLE_RED("Error code: %d\n"), res);
 			f_close(&MyFile);
+			osMutexRelease(myMutex01Handle);
 			return false;
 		}
 
@@ -577,73 +603,62 @@ bool SD_Write_File_Offset(char *file_path, uint16_t** data, int offset)
 		if(pos == offset) break;
 	}
 
-	/*for(int i = offset; i <= offset-1; i++)
-	{
-		safe_printf("Apparently i can't C\n");
-		if(i > 9) i = 0;
-		safe_printf("i %d\n", i);
-		char *data_b = (char*)(*data[i]);
-
-		uint32_t bytes_written;
-		res = f_write(&MyFile, data_b[i], length, &bytes_written);
-		if(res != FR_OK) {
-			safe_printf("Failed to write to file %s.\n", file_path);
-			safe_printf("Error code: %d\n", res);
-			return false;
-		}
-	}*/
-
-	safe_printf("Write to file successful\n");
+	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Write to file successful\n"));
 
 	f_close(&MyFile);
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 bool SD_Read_File(char *file_path, uint8_t **data, int* length)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_open(&MyFile, file_path, FA_READ);
 	if(res != FR_OK) {
-		safe_printf("Failed to open file %s\n", file_path);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to open file %s\n"), file_path);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
 	FSIZE_t size = f_size(&MyFile);
-	safe_printf("Size: %d\n", size);
 
 	uint8_t* data_read = calloc(size, 1);
 	if(data_read == NULL) {
-		safe_printf("Failed to allocate memory for reading file.\n");
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to allocate memory for reading file.\n"));
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
 	uint32_t bytes_read;
 	res = f_read(&MyFile, data_read, size, &bytes_read);
 	if(res != FR_OK) {
-		safe_printf("Failed to read file %s\n", file_path);
-		safe_printf("Error code: %d\n", res);
+		safe_printf(CONSOLE_RED("Failed to read file %s\n"), file_path);
+		safe_printf(CONSOLE_RED("Error code: %d\n"), res);
 		free(data);
 		f_close(&MyFile);
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
-	safe_printf("Bytes read: %d\n", bytes_read);
+	if(get_debug_mode_status()) safe_printf(CONSOLE_BLUE("Bytes read: %d\n"), bytes_read);
 
 	*data = data_read;
 	*length = bytes_read;
 	f_close(&MyFile);
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 
 FRESULT SD_Delete_Everything(char *path)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res;
 	DIR dir;
-	UINT i;
 	static FILINFO fno;
 
 	res = f_opendir(&dir, path);                       /* Open the directory */
@@ -652,36 +667,34 @@ FRESULT SD_Delete_Everything(char *path)
 			res = f_readdir(&dir, &fno);                   /* Read a directory item */
 			if (res != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
 
+			osMutexRelease(myMutex01Handle);
 			SD_Delete(fno.fname);
-
-			/*if(fno.fattrib & AM_DIR) {
-				safe_printf("Want to delete: %s - %s", path, fno.fname);
-			}
-			else {
-				safe_printf("Want to delete: %s - %s", path, fno.fname);
-			}*/
-
-			//safe_printf("%s/%s\n", path, fno.fname);
+			osMutexWait(myMutex01Handle, osWaitForever);
 		}
 		f_closedir(&dir);
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return res;
 }
 
 bool SD_Move_File(char *old, char *new)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res = f_rename(old, new);
 	if(res != FR_OK) {
 		safe_printf(CONSOLE_RED("Copy Failed.\n"));
+		osMutexRelease(myMutex01Handle);
 		return false;
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return true;
 }
 
 bool SD_Tree(char *path)
 {
+	osMutexWait(myMutex01Handle, osWaitForever);
 	FRESULT res;
 	DIR dir;
 	UINT i;
@@ -706,5 +719,6 @@ bool SD_Tree(char *path)
 		f_closedir(&dir);
 	}
 
+	osMutexRelease(myMutex01Handle);
 	return res == FR_OK;
 }

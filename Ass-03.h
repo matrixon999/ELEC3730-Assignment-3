@@ -55,7 +55,7 @@ extern osMutexId myMutex01Handle; // Protect LCD
 extern osMutexId myMutex02Handle; // Protect console output
 
 extern osMutexId globalVariableHandle; // Protect global variables
-extern osMutexId SDCardMutexHandle; // TODO this
+extern osMutexId SDCardMutexHandle; // mutex to protect sd card access
 
 // Assignment tasks
 extern void Ass_03_Task_01(void const *argument);
@@ -86,20 +86,21 @@ extern uint8_t getfp(Coordinate *display);
 
 // global variables
 
+static uint16_t beat_values[100];
+
 static bool just_loaded = false;
 extern bool get_loaded();
 extern void set_loaded(bool);
-
-static volatile int ADC_Pos = 0;
-extern int get_ADC_Pos();
-extern void set_ADC_Pos(int val);
 
 static uint16_t DMA_Buffer[1000];
 extern uint16_t get_DMA_Value(int i);
 extern uint16_t **get_DMA_Value_p();
 
+static volatile int ADC_Pos = 0;
+extern int get_ADC_Pos();
+extern void set_ADC_Pos(int val);
 
-static uint16_t ADC_Value[10][1000];
+static uint16_t ADC_Value[10][1000] = {{0},{0},{0},{0},{0},{0},{0},{0},{0},{0}};
 extern uint16_t get_ADC_Value(int i);
 extern void set_ADC_Value(int i, uint16_t val);
 extern uint16_t *get_ADC_Value_p();
@@ -130,15 +131,14 @@ static bool start = true;
 extern bool get_start();
 extern void set_start(bool);
 
-// function declarations
-
+// function declarations for parser and command line
 extern int string_parser(char *inp, char **array_of_words_p[]);
 extern FRESULT scan_files(char *path);
 extern bool is_char_numeric(char c);
 extern int to_int(char *str);
 extern bool is_numeric(char *str);
 
-// functions for commad array
+// functions for command array
 extern void debug_func(uint8_t num_args, char **args);
 extern void analog_func(uint8_t num_args, char **args);
 extern void ls_func(uint8_t num_args, char **args);
@@ -156,6 +156,7 @@ extern void head_func(uint8_t num_args, char **args);
 extern void tail_func(uint8_t num_args, char **args);
 extern void clear_func(uint8_t num_args, char **args);
 
+// struct to hold command line functionality
 typedef struct {
 	char *function_name;
 	char *friendly_name;
@@ -163,6 +164,7 @@ typedef struct {
 	char *help_string;
 } command;
 
+// array of command line commands
 static const command Commands[] = {
 	{"debug", "Debug", &debug_func, "debug {on/off}"},
 	{"analog", "Analog", &analog_func, "analog {num}"},
@@ -183,12 +185,14 @@ static const command Commands[] = {
 	{"clear", "Clears the screen", &clear_func, "clear"},
 };
 
+// drawing data
 #define XOFF 55
 #define YOFF 15
 #define XSIZE 250
 #define YSIZE 150
 #define XPOS 5
 
+// enum for what button was pressed
 typedef enum {
 	Nothing,
 	Start,
@@ -200,12 +204,14 @@ typedef enum {
 	Mode
 } ButtonPress;
 
+// struct for holding rectangle positions and text
 typedef struct {
 	int x, y, width, height;
 	char *text;
 	ButtonPress bp;
 } Rectangle;
 
+// static rectangle definitions
 static Rectangle rectangles[] = {
  {XPOS, YOFF, 45, 45, "Start", Start}, //start
  {XPOS, YOFF+50, 45, 45, "Zoom", Zoom}, //zoom
@@ -215,20 +221,22 @@ static Rectangle rectangles[] = {
 
  {XPOS+(50), YOFF+(50*3)+25, 45, 45, "Store", Store}, //store
  {XPOS+(50*2), YOFF+(50*3)+25, 45, 45, "-", Minus}, // -
- {XPOS+(50*3), YOFF+(50*3)+25, 45, 45, "1", 0}, // num // pos 7
+ {XPOS+(50*3), YOFF+(50*3)+25, 45, 45, "1", 0}, // num
  {XPOS+(50*4), YOFF+(50*3)+25, 45, 45, "+", Plus}, // +
  {XPOS+(50*5), YOFF+(50*3)+25, 45, 45, "Mode", Mode}, //switch mode
 
  {XPOS+(50), YOFF+(150), 20, 20, "0s"}, // time stamp left
  {XPOS+(50*6)-20, YOFF+(150), 20, 20, "10s"}, // time stamp right
 };
-extern Rectangle* get_rectangles();
-
+// static length calculation
 static int rectangles_length = sizeof(rectangles) / sizeof(Rectangle);
+// functions to get data from rectangles
+extern Rectangle* get_rectangles(); // TODO not using this, should we
 extern int get_rectangles_length();
 
 // SNAKE STUFF
 
+// enum for joystick
 typedef enum {
   Left = 'L',
   Right = 'R',
@@ -236,15 +244,16 @@ typedef enum {
   Down = 'D',
 } JoystickButton;
 
+// struct for positions
 typedef struct {
 	int x;
 	int y;
 } vector;
 
+// function declarations for snake an joystick
 static bool snake_time = false;
 extern bool get_snake_time();
 extern void set_snake_time(bool);
-
 extern void run_snake_time();
 extern uint8_t GetJoystick();
 extern uint8_t ReadJoystick();
